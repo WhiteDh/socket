@@ -1,54 +1,77 @@
-import random
 import socket
-import time
 from threading import Thread
-from tkinter import *
+import tkinter as tk
 
-sock = socket.socket()
+root = tk.Tk()
+root.title("Text Input and Display")
+with open("chat_history.txt", "r") as f:
+    text = f.read()
+    f.close()
 
-sock.connect(('zebaro24.tplinkdns.com', 25565))
+text_field = tk.Text(root, height=10, width=30)
+text_field.insert(tk.END, text+"\n")
+text_field.pack()
 
-root = Tk()
-
-root.title("zeite")
-root.geometry("500x600")
-
-text = Text(root)
-text.insert(END, "\n"*25)
-
-text.pack()
-entry = Entry(width=50, xscrollcommand=True)
+entry = tk.Entry(root)
 entry.pack()
-def add_message(message):
-    text.config(state="normal")
-    text.insert(END, f"{message}")
-    text.config(state="disabled")
-    text.see(END)
+def add_text_from_button():
+    text = entry.get()
+    text_field.insert(tk.END,"you: " + text + "\n")
+    entry.delete(0, tk.END)
+    send_message(text)
+
+    messages = text_field.get("1.0", "end")
+    save_chat(messages)
+def add_text_recieved(text):
+    text_field.insert(tk.END, text + "\n")
+
+def on_enter_press(event):
+    add_text_from_button()
+
+root.bind('<Return>', on_enter_press)
+button = tk.Button(root, text="Add", command=add_text_from_button)
+button.pack()
 
 
-def send(message):
-    sock.send(message.encode("UTF-8"))
-def recieve():
+
+def send_message(message):
+    client_socket.sendall(message.encode('utf-8'))
+
+def receive_message():
     while True:
-        data = sock.recv(1024).decode('UTF-8')
+        data = client_socket.recv(1024)
         if data:
-            print(f"{data}")
-            add_message("\nden: ")
-            add_message(data)
-def get_message():
-    message = entry.get()
-    entry.delete(0,END)
-    send(message)
-    add_message(f"\ndima: {message}")
+            print("Received data:", data.decode('utf-8'))
+            add_text_recieved(f"man: {data.decode('utf-8')}")
+def save_chat(text):
+    with open("chat_history.txt", "w") as f:
+        f.write(text)
+        f.close()
+port = 12345
+host = "localhost"
+server_address = (host, port)
 
-def get_message_bind(key):
-    get_message()
-Thread(target=recieve).start()
+# Create a socket object
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-btn_send= Button(text="send", command=get_message)
-btn_send.pack()
+# Connect to server
+client_socket.connect(server_address)
+
+# Start send and receive threads
+receive_thread = Thread(target=receive_message)
+receive_thread.start()
 
 
 
-root.bind("<Return>", get_message_bind)
+
+
+
+
 root.mainloop()
+
+
+# Wait for threads to finish
+receive_thread.join()
+
+# Close the socket
+client_socket.close()
